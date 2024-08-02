@@ -91,30 +91,63 @@ func ExtractTransformLoad(file io.Reader, db *sql.DB) (uint64, uint64, error) {
 
 	var row LineItem
 
-	query := `INSERT INTO purchase_orders (
-		order_id, order_date, product,
-	 	product_ean, quantity, street,
-	 	city, state, zip, price, cost_price,
-	  	price_total)
-	  	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`
+	query1 := `INSERT INTO purchase_orders (
+		order_id, 
+		order_date)
+	  	VALUES ($1, $2)
+	  	on conflict (order_id) do nothing;`
 
-	statement, err := db.Prepare(query)
+	query2 := `INSERT INTO line_items (
+		order_id,
+		product,
+		product_ean,
+		quantity,
+		price,
+		cost_price,
+		price_total)
+		VALUES ($1, $2, $3, $4, $5, $6, $7);`
+
+	query3 := `INSERT INTO order_address(
+		order_id,
+		street,
+		city,
+		state,
+		zip)
+		VALUES ($1, $2, $3, $4, $5);`
+
+	statement1, err := db.Prepare(query1)
 	if err != nil {
-		//return 0, 0, err
-		log.Fatalf("prepare error: %w", err)
+		return 0, 0, err
 	}
 
-	chRow := make(chan LineItem, 128)
+	statement2, err := db.Prepare(query2)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	statement3, err := db.Prepare(query3)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	chRow := make(chan LineItem, 1024)
 
 	go func() {
-			for c := range chRow {
-				if _, err = statement.Exec(c.OrderID, c.OrderDate, c.Product,
-					c.ProductEAN, c.Quantity, c.Street, c.City,
-					c.State, c.ZIP, c.Price, c.CostPrice, c.PriceTotal); err != nil {
-					log.Fatal(err)
-				}
+		for c := range chRow {
+			if _, err = statement1.Exec(c.OrderID, c.OrderDate); err != nil {
+				log.Fatal(err)
 			}
-		}()
+			if _, err = statement2.Exec(c.OrderID, c.Product, c.ProductEAN,
+				c.Quantity, c.Price, c.CostPrice, c.PriceTotal); err != nil {
+				log.Fatal(err)
+			}
+
+			if _, err = statement3.Exec(c.OrderID, c.Street, c.City,
+				c.State, c.ZIP); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
 
 	for {
 
@@ -138,7 +171,6 @@ func ExtractTransformLoad(file io.Reader, db *sql.DB) (uint64, uint64, error) {
 
 		chRow <- row
 
-		
 	}
 
 	return NumRecords, NumErrors, nil
@@ -189,6 +221,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	start := time.Now()
 
 	NumRecords, NumErrors, err := ExtractTransformLoad(file, db)
@@ -196,6 +233,10 @@ func main() {
 	duration := time.Since(start)
 
 	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := tx.Commit(); err != nil {
 		log.Fatal(err)
 	}
 
