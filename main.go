@@ -149,6 +149,57 @@ func ExtractTransformLoad(file io.Reader, db *sql.DB) (uint64, uint64, error) {
 		}
 	}()
 
+	go func() {
+		for c := range chRow {
+			if _, err = statement1.Exec(c.OrderID, c.OrderDate); err != nil {
+				log.Fatal(err)
+			}
+			if _, err = statement2.Exec(c.OrderID, c.Product, c.ProductEAN,
+				c.Quantity, c.Price, c.CostPrice, c.PriceTotal); err != nil {
+				log.Fatal(err)
+			}
+
+			if _, err = statement3.Exec(c.OrderID, c.Street, c.City,
+				c.State, c.ZIP); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	go func() {
+		for c := range chRow {
+			if _, err = statement1.Exec(c.OrderID, c.OrderDate); err != nil {
+				log.Fatal(err)
+			}
+			if _, err = statement2.Exec(c.OrderID, c.Product, c.ProductEAN,
+				c.Quantity, c.Price, c.CostPrice, c.PriceTotal); err != nil {
+				log.Fatal(err)
+			}
+
+			if _, err = statement3.Exec(c.OrderID, c.Street, c.City,
+				c.State, c.ZIP); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
+	go func() {
+		for c := range chRow {
+			if _, err = statement1.Exec(c.OrderID, c.OrderDate); err != nil {
+				log.Fatal(err)
+			}
+			if _, err = statement2.Exec(c.OrderID, c.Product, c.ProductEAN,
+				c.Quantity, c.Price, c.CostPrice, c.PriceTotal); err != nil {
+				log.Fatal(err)
+			}
+
+			if _, err = statement3.Exec(c.OrderID, c.Street, c.City,
+				c.State, c.ZIP); err != nil {
+				log.Fatal(err)
+			}
+		}
+	}()
+
 	for {
 
 		NumRecords++
